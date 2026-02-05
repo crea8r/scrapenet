@@ -72,6 +72,10 @@ A working centralized MVP is implemented (no on-chain program):
 
 Run the demo: see [`docs/DEMO.md`](docs/DEMO.md).
 
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 ## Roadmap
 
 ### Phase 0 — Local demo

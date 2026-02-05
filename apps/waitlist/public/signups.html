@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ScrapeNet Waitlist Signups</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial; max-width: 920px; margin: 40px auto; padding: 0 16px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border-bottom: 1px solid #eee; padding: 10px 8px; text-align: left; font-size: 14px; }
+      th { position: sticky; top: 0; background: #fff; }
+      .meta { color: #555; font-size: 14px; }
+      .pill { display:inline-block; padding: 2px 8px; border: 1px solid #ddd; border-radius: 999px; margin-right: 6px; font-size: 12px; }
+      .row { display:flex; gap: 12px; align-items:center; flex-wrap: wrap; }
+    </style>
+  </head>
+  <body>
+    <h1>ScrapeNet Worker Waitlist — Public Signups</h1>
+    <div class="row meta">
+      <div>Total signups: <b id="count">…</b></div>
+      <div class="pill"><a href="/">signup form</a></div>
+      <div class="pill"><a href="/SKILL.md">agent instructions</a></div>
+      <div class="pill"><a href="/api/signups?limit=200" target="_blank">json</a></div>
+    </div>
+
+    <h2>Latest signups</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Time (UTC)</th>
+          <th>Handle</th>
+          <th>Region</th>
+          <th>Playwright</th>
+          <th>Proxy</th>
+          <th>Job types</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+
+    <script>
+      async function refresh() {
+        const count = await fetch('/api/count').then(r => r.json());
+        document.getElementById('count').textContent = String(count.count ?? 0);
+
+        const data = await fetch('/api/signups?limit=200').then(r => r.json());
+        const rows = data.signups || [];
+
+        const tbody = document.getElementById('rows');
+        tbody.innerHTML = '';
+        for (const s of rows.slice().reverse()) {
+          const tr = document.createElement('tr');
+          const t = (s.ts || '').replace('T', ' ').replace('Z','');
+          tr.innerHTML = `
+            <td>${t}</td>
+            <td>${escapeHtml(s.handle || '')} <span class="meta">(${escapeHtml(s.platform || '')})</span></td>
+            <td>${escapeHtml(s.region || '')}</td>
+            <td>${s.canPlaywright ? 'yes' : 'no'}${s.canHeadful ? ' + headful' : ''}</td>
+            <td>${escapeHtml(s.proxyType || '')}</td>
+            <td>${escapeHtml(String(s.jobTypes || ''))}</td>
+          `;
+          tbody.appendChild(tr);
+        }
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      refresh();
+      setInterval(refresh, 5000);
+    </script>
+  </body>
+</html>

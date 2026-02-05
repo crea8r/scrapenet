@@ -59,6 +59,46 @@ app.get('/api/count', (_req, res) => {
   res.json({ ok: true, count });
 });
 
+// Public endpoint: last N signups (redacted)
+app.get('/api/signups', (req, res) => {
+  const limit = Math.max(0, Math.min(Number(req.query.limit || 50), 500));
+  let rows = [];
+
+  try {
+    const raw = fs.readFileSync(SIGNUPS_PATH, 'utf8');
+    const lines = raw.trim().length ? raw.trim().split('\n') : [];
+    const tail = lines.slice(-limit);
+    rows = tail
+      .map((l) => {
+        try {
+          return JSON.parse(l);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .map((s) => ({
+        ts: s.ts,
+        handle: s.handle,
+        platform: s.platform,
+        region: s.region,
+        canPlaywright: !!s.canPlaywright,
+        canHeadful: !!s.canHeadful,
+        proxyType: s.proxyType,
+        jobTypes: s.jobTypes
+      }));
+  } catch {
+    rows = [];
+  }
+
+  res.json({ ok: true, signups: rows });
+});
+
+// Public HTML page for humans
+app.get('/signups', (_req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'signups.html'));
+});
+
 app.listen(PORT, () => {
   console.log(`[waitlist] listening on http://0.0.0.0:${PORT}`);
   console.log(`[waitlist] writing signups to ${SIGNUPS_PATH}`);

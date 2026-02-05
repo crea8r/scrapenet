@@ -37,10 +37,12 @@ curl -s -X POST https://YOUR_DOMAIN/api/waitlist \
   }'
 ```
 
-## Health
+## Health + public stats
 
 - `GET /healthz` → `{ ok: true }`
 - `GET /api/count` → `{ ok: true, count: <number> }`
+- `GET /api/signups?limit=50` → last N signups (redacted; no contact/notes)
+- `GET /signups` → human-friendly page listing recent signups + live count
 
 ## Notes
 

@@ -22,6 +22,8 @@ pnpm-debug.log*
 
 # Runtime data
 apps/node/data/
+apps/waitlist/data/
+.tmp/
 
 # Solana
 **/.anchor/

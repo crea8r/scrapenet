@@ -104,7 +104,13 @@ describe('ScrapeNet MVP e2e', () => {
         await new Promise((r2) => setTimeout(r2, 500));
       }
 
-      expect(receipts.find((x) => x.jobId === 'testJob' && x.acceptedRowCount > 0)).toBeTruthy();
+      const okReceipt = receipts.find((x) => x.jobId === 'testJob' && x.acceptedRowCount > 0);
+      if (!okReceipt) {
+        throw new Error(
+          `no accepted receipt found. receipts=${JSON.stringify(receipts)}\n` +
+            `node1_logs=\n${node1.getOutput()}\nnode2_logs=\n${node2.getOutput()}\n`
+        );
+      }
 
       // escrow should have credited at least one of the nodes (leader at time of push)
       const b1 = await fetch('http://127.0.0.1:8791/balance/node_test_1').then((x) => x.json());

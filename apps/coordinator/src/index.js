@@ -122,8 +122,20 @@ app.get('/nodes', (_req, res) => {
 });
 
 app.get('/workers', (_req, res) => {
-  // MVP: workers == connected nodes
+  // MVP: workers == connected nodes, plus any registered manifest in node.meta
   res.json({ ok: true, workers: listNodes() });
+});
+
+// Worker manifest registration (MVP)
+app.post('/workers/register', (req, res) => {
+  const { nodeId, manifest } = req.body || {};
+  if (!nodeId) return res.status(400).json({ ok: false, error: 'missing nodeId' });
+  const rec = state.nodes.get(nodeId);
+  if (!rec) return res.status(404).json({ ok: false, error: 'node-not-connected' });
+
+  rec.meta = { ...(rec.meta || {}), ...(manifest || {}), manifestUpdatedAt: now() };
+  state.nodes.set(nodeId, rec);
+  res.json({ ok: true });
 });
 
 /** Rotate leader for a job (triggered by leader after pushing a batch) */

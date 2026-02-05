@@ -291,6 +291,18 @@ class NodeApp {
         })
       );
 
+      // register worker manifest (best-effort)
+      const manifest = {
+        region: process.env.REGION || '',
+        proxyType: process.env.PROXY_TYPE || 'none',
+        canPlaywright: process.env.CAN_PLAYWRIGHT === 'true' || false
+      };
+      fetch(`${this.coordinatorHttp}/workers/register`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ nodeId: NODE_ID, manifest })
+      }).catch(() => {});
+
       // periodically refresh jobs
       setInterval(() => {
         try {

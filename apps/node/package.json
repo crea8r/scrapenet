@@ -1,0 +1,13 @@
+{
+  "name": "@scrapenet/node",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node src/index.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
+    "nanoid": "^5.0.7",
+    "ws": "^8.18.0"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@scrapenet/poster-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

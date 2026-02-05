@@ -61,6 +61,17 @@ A distributed network of computers that run data-scraping jobs for job posters.
   - `solana/` – program + client SDK
 - `docs/` – specs and threat model
 
+## Quickstart (MVP)
+
+A working centralized MVP is implemented (no on-chain program):
+
+- Coordinator: job registry + WebSocket relay
+- Node: worker + leader runtime
+- Poster demo server: accepts batches + signs receipts
+- Escrow server: holds a USDC-like deposit ledger and releases on claim
+
+Run the demo: see [`docs/DEMO.md`](docs/DEMO.md).
+
 ## Roadmap
 
 ### Phase 0 — Local demo

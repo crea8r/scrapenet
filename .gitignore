@@ -20,6 +20,9 @@ pnpm-debug.log*
 /.turbo
 /.next
 
+# Runtime data
+apps/node/data/
+
 # Solana
 **/.anchor/
 **/target/

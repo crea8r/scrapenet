@@ -1,0 +1,13 @@
+{
+  "name": "@scrapenet/coordinator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "nanoid": "^5.0.7",
+    "ws": "^8.18.0"
+  }
+}

@@ -4,6 +4,7 @@ import { WebSocketServer } from 'ws';
 import { nanoid } from 'nanoid';
 
 const PORT = Number(process.env.PORT || 8787);
+const POSTER_API_KEY = process.env.POSTER_API_KEY || ''; // if set, protects job creation
 
 const app = express();
 app.use(express.json({ limit: '5mb' }));
@@ -60,8 +61,14 @@ function pickRandomNode(excludeNodeId) {
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-/** REST: create a job (MVP) */
+/** REST: create a job (MVP)
+ * If POSTER_API_KEY is set, requires header: X-Poster-Key
+ */
 app.post('/jobs', (req, res) => {
+  if (POSTER_API_KEY) {
+    const k = req.header('x-poster-key') || '';
+    if (k !== POSTER_API_KEY) return res.status(401).json({ ok: false, error: 'unauthorized' });
+  }
   const job = req.body || {};
   const jobId = job.jobId || nanoid();
 
@@ -69,7 +76,16 @@ app.post('/jobs', (req, res) => {
     jobId,
     name: job.name || 'unnamed-job',
     kind: job.kind || 'quotes-to-scrape',
+
+    // Two shard types supported:
+    // - pageRange: {start,end}
+    // - list: {items:[...]} (e.g., URLs)
     shard: job.shard || { kind: 'pageRange', start: 1, end: 10 },
+
+    // For price monitoring template
+    template: job.template || null,
+    targets: Array.isArray(job.targets) ? job.targets : null,
+
     rowLimit: Number(job.rowLimit || 1000),
     posterEndpoint: job.posterEndpoint || 'http://localhost:8790',
     escrowEndpoint: job.escrowEndpoint || 'http://localhost:8791',
@@ -103,6 +119,11 @@ app.get('/jobs', (_req, res) => {
 
 app.get('/nodes', (_req, res) => {
   res.json({ ok: true, nodes: listNodes() });
+});
+
+app.get('/workers', (_req, res) => {
+  // MVP: workers == connected nodes
+  res.json({ ok: true, workers: listNodes() });
 });
 
 /** Rotate leader for a job (triggered by leader after pushing a batch) */

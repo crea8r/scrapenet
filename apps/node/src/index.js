@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import * as cheerio from 'cheerio';
+import { scrapePriceTarget } from './priceMonitor.js';
 
 const COORDINATOR_WS = process.env.COORDINATOR_WS || 'ws://localhost:8787/ws';
 const NODE_ID = process.env.NODE_ID || `node_${nanoid(6)}`;
@@ -74,12 +75,20 @@ class LeaderRuntime {
 
     this.state = this._loadState();
 
-    // shard queue: page numbers
+    // shard queue: assignments
+    // - pageRange -> quote pages
+    // - list -> arbitrary items
     const shard = job.shard || { kind: 'pageRange', start: 1, end: 10 };
-    const start = shard.start || 1;
-    const end = shard.end || 10;
-    this.pages = [];
-    for (let p = start; p <= end; p++) this.pages.push(p);
+    this.items = [];
+
+    if (shard.kind === 'list') {
+      const items = Array.isArray(shard.items) ? shard.items : [];
+      this.items = items.map((it, i) => ({ type: 'item', index: i, item: it }));
+    } else {
+      const start = shard.start || 1;
+      const end = shard.end || 10;
+      for (let p = start; p <= end; p++) this.items.push({ type: 'page', pageNumber: p });
+    }
 
     // track outstanding assignments
     this.inflight = new Map(); // workerId -> pageNumber
@@ -118,7 +127,7 @@ class LeaderRuntime {
    * (2) how much work left
    */
   progress() {
-    const total = this.pages.length;
+    const total = this.items.length;
     const done = this.state.completedShards;
     const remaining = Math.max(0, total - done);
     return {
@@ -144,17 +153,19 @@ class LeaderRuntime {
     }
 
     const idx = this.state.nextShardIndex;
-    if (idx >= this.pages.length) {
+    if (idx >= this.items.length) {
       return { ok: false, done: true };
     }
 
-    const pageNumber = this.pages[idx];
+    const assignment = this.items[idx];
     this.state.nextShardIndex += 1;
     this.state.assigned += 1;
-    this.inflight.set(workerId, pageNumber);
+
+    // store a compact inflight token (stringified)
+    this.inflight.set(workerId, JSON.stringify(assignment));
     this._saveState();
 
-    return { ok: true, assignment: { pageNumber } };
+    return { ok: true, assignment };
   }
 
   handleNeedShard({ reqId, workerNodeId }) {
@@ -167,17 +178,23 @@ class LeaderRuntime {
     };
   }
 
-  async handleSubmitResult({ reqId, workerNodeId, pageNumber, rows }) {
-    const result = await this.ingestResult({ workerId: workerNodeId, pageNumber, rows });
+  async handleSubmitResult({ reqId, workerNodeId, assignment, rows }) {
+    const result = await this.ingestResult({ workerId: workerNodeId, assignment, rows });
     return { type: 'resultAck', reqId, jobId: this.job.jobId, ok: result.ok, result };
   }
 
   /**
    * Handle a worker result. Persist rows locally (leader) and push when rowLimit hit.
    */
-  async ingestResult({ workerId, pageNumber, rows }) {
-    const inflightPage = this.inflight.get(workerId);
-    if (inflightPage !== pageNumber) {
+  async ingestResult({ workerId, assignment, rows }) {
+    const inflightTok = this.inflight.get(workerId);
+    if (!inflightTok) {
+      return { ok: false, error: 'missing-inflight' };
+    }
+    // best-effort match
+    const expected = inflightTok;
+    const got = JSON.stringify(assignment);
+    if (expected !== got) {
       return { ok: false, error: 'unexpected-assignment' };
     }
 
@@ -192,7 +209,7 @@ class LeaderRuntime {
         row,
         rowHash,
         workerId,
-        pageNumber,
+        assignment,
         ts: Date.now()
       };
       fs.appendFileSync(this.rowsPath, JSON.stringify(rec) + '\n');
@@ -358,7 +375,7 @@ class NodeApp {
       const reply = await leader.handleSubmitResult({
         reqId: msg.reqId,
         workerNodeId: msg.workerNodeId,
-        pageNumber: msg.pageNumber,
+        assignment: msg.assignment,
         rows: msg.rows
       });
       this.ws.send(JSON.stringify(reply));
@@ -409,10 +426,18 @@ class NodeApp {
           continue;
         }
 
-        const pageNumber = assigned.assignment.pageNumber;
-        const rows = await scrapeQuotesPage(pageNumber);
+        const assignment = assigned.assignment;
 
-        const ack = await this.sendRequest({ type: 'submitResult', jobId: job.jobId, pageNumber, rows }, 30_000);
+        let rows;
+        if (job.kind === 'price-monitor') {
+          if (assignment.type !== 'item') throw new Error('bad-assignment');
+          rows = await scrapePriceTarget(assignment.item);
+        } else {
+          if (assignment.type !== 'page') throw new Error('bad-assignment');
+          rows = await scrapeQuotesPage(assignment.pageNumber);
+        }
+
+        const ack = await this.sendRequest({ type: 'submitResult', jobId: job.jobId, assignment, rows }, 30_000);
         if (!ack.ok) {
           console.error('[worker] submit failed', ack.error);
         }
